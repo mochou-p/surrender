@@ -1,13 +1,18 @@
 // mochou-p/surrender/examples/main.rs
 
-use surrender::{Framebuffer, Color};
+#[derive(Default)]
+struct Game;
 
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let fb = Framebuffer::new(20, 10, Color::rgba(255, 127, 0, 100))?;
-
-    fb.write_as_pam("image.pam")?;
-
-    Ok(())
+fn main() {
+    surrender::App::<Game>::new()
+        .window(|_, attributes| {
+            attributes
+                .with_resizable(false)
+        })
+        .load(|_| {})
+        .update(|_| {})
+        .draw(|_, _| {})
+        .quit(|_| {})
+        .run()
 }
 
