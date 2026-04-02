@@ -1,77 +1,31 @@
+// mochou-p/surrender/src/lib.rs
+
 mod color;
-mod image;
-mod shape;
-mod transfer;
+mod framebuffer;
 
-pub use color::Color;
+use std::fmt::{self, Display, Formatter};
+
+pub use {color::Color, framebuffer::Framebuffer};
 
 
-#[derive(Debug, Clone)]
-pub struct Framebuffer<const WIDTH: usize, const HEIGHT: usize>(
-    [[Color; WIDTH]; HEIGHT]
-);
+pub const CHANNEL_COUNT: usize = 4;
 
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::Index<usize>
-for Framebuffer<WIDTH, HEIGHT> {
-    type Output = [Color; WIDTH];
+pub type Result<T> = std::result::Result<T, Error>;
 
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.0[index]
+#[derive(Debug)]
+pub enum Error {
+    WidthIsZero,
+    HeightIsZero
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Self:: WidthIsZero =>  "width is not non-zero!",
+            Self::HeightIsZero => "height is not non-zero!"
+        })
     }
 }
 
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::IndexMut<usize>
-for Framebuffer<WIDTH, HEIGHT> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.0[index]
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::Index<[usize; 2]>
-for Framebuffer<WIDTH, HEIGHT> {
-    type Output = Color;
-
-    fn index(&self, index: [usize; 2]) -> &Self::Output {
-        &self.0[index[1]][index[0]]
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::Index<(usize, usize)>
-for Framebuffer<WIDTH, HEIGHT> {
-    type Output = Color;
-
-    fn index(&self, (x, y): (usize, usize)) -> &Self::Output {
-        &self.0[y][x]
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::IndexMut<[usize; 2]>
-for Framebuffer<WIDTH, HEIGHT> {
-    fn index_mut(&mut self, index: [usize; 2]) -> &mut Self::Output {
-        &mut self.0[index[1]][index[0]]
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize>
-std::ops::IndexMut<(usize, usize)>
-for Framebuffer<WIDTH, HEIGHT> {
-    fn index_mut(&mut self, (x, y): (usize, usize)) -> &mut Self::Output {
-        &mut self.0[y][x]
-    }
-}
-
-impl<const WIDTH: usize, const HEIGHT: usize> Framebuffer<WIDTH, HEIGHT> {
-    pub fn new(c: Color) -> Self {
-        Self([[c; WIDTH]; HEIGHT])
-    }
-
-    pub fn clear(&mut self, c: Color) {
-        self.0.as_flattened_mut().fill(c);
-    }
-}
+impl std::error::Error for Error {}
 
