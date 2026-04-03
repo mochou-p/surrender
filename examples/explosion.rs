@@ -1,16 +1,3 @@
-<!-- mochou-p/surrender/README.md -->
-
-# surrender
-design inspired by [LÖVE](https://www.love2d.org/) (shoutout!)
-
-## example
-```sh
-cargo run --example explosion
-```
-
-![](https://github.com/user-attachments/assets/b7b26e28-728e-4183-ae51-0c70ded43c4c)
-
-```rs
 // mochou-p/surrender/examples/explosion.rs
 
 #![feature(random)]
@@ -74,5 +61,4 @@ fn main() {
         .quit_if(|game| game.exiting)
         .run()
 }
-```
 

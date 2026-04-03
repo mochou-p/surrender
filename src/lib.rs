@@ -3,7 +3,7 @@
 use std::num::NonZeroU32;
 use std::rc::Rc;
 use std::time::Instant;
-use softbuffer::{Buffer, Context, Surface};
+use softbuffer::{Context, Surface};
 use winit::application::ApplicationHandler;
 use winit::event::{MouseButton, MouseScrollDelta, StartCause, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop, OwnedDisplayHandle};
@@ -31,7 +31,7 @@ pub struct App<T: Default> {
     scroll:         Box<dyn Fn(&mut T, f32,         f32 )        >,
     mouse:          Box<dyn Fn(&mut T, MouseButton, bool)        >,
     update:         Box<dyn Fn(&mut T, f32              )        >,
-    draw:           Box<dyn Fn(&mut T, Canvas<'_>       )        >
+    draw:           Box<dyn Fn(&mut T, &mut Canvas<'_>  )        >
 }
 
 impl<T: Default> App<T> {
@@ -81,7 +81,7 @@ impl<T: Default> App<T> {
     pub fn   scroll(mut self,   scroll: impl Fn    (&mut T, f32,         f32 )         + 'static) -> Self { self.scroll   =      Box::new(scroll  ) ; self }
     pub fn    mouse(mut self,    mouse: impl Fn    (&mut T, MouseButton, bool)         + 'static) -> Self { self.mouse    =      Box::new(mouse   ) ; self }
     pub fn   update(mut self,   update: impl Fn    (&mut T, f32              )         + 'static) -> Self { self.update   =      Box::new(update  ) ; self }
-    pub fn     draw(mut self,     draw: impl Fn    (&mut T, Canvas<'_>       )         + 'static) -> Self { self.draw     =      Box::new(draw    ) ; self }
+    pub fn     draw(mut self,     draw: impl Fn    (&mut T, &mut Canvas<'_>  )         + 'static) -> Self { self.draw     =      Box::new(draw    ) ; self }
 
     pub fn run(mut self) {
         if let Some(load) = self.load.take() {
@@ -199,9 +199,11 @@ impl<T: Default> ApplicationHandler for App<T> {
             },
             WindowEvent::RedrawRequested => {
                 let mut buffer = surface.buffer_mut().unwrap();
-                let     canvas = Canvas(&mut buffer);
+                let     width  = buffer. width().get();
+                let     height = buffer.height().get();
+                let mut canvas = Canvas { framebuffer: &mut (*buffer), width, height };
 
-                (self.draw)(&mut self.data, canvas);
+                (self.draw)(&mut self.data, &mut canvas);
 
                 buffer.present().unwrap();
             },
@@ -213,9 +215,38 @@ impl<T: Default> ApplicationHandler for App<T> {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Canvas<'a>(*mut Buffer<'a, OwnedDisplayHandle, Rc<Window>>);
+static mut CURRENT_COLOR: u32 = 0x00FFFFFF;
+
+pub struct Canvas<'a> {
+    framebuffer: &'a mut [u32],
+    width:       u32,
+    height:      u32
+}
 
 impl Canvas<'_> {
+    pub fn set_color(&self, red: u8, green: u8, blue: u8) {
+        unsafe { CURRENT_COLOR = u32::from_ne_bytes([blue, green, red, 0]); }
+    }
+
+    pub fn rectangle(&mut self, x: f32, y: f32, width: f32, height: f32) {
+        // NOTE: yea i know amazing right (too lazy to simplify)
+        let width  = width  + x.min(0.0) - (x + width  - self.width  as f32).max(0.0);
+        let height = height + y.min(0.0) - (y + height - self.height as f32).max(0.0);
+        let x      = x.clamp(0.0, self.width  as f32);
+        let y      = y.clamp(0.0, self.height as f32);
+
+        let x      =      x.floor() as u32;
+        let y      =      y.floor() as u32;
+        let width  =  width.floor() as u32;
+        let height = height.floor() as u32;
+
+        for row in y..y+height {
+            let y_offset = row * self.width;
+            let start    = y_offset + x;
+            let end      = start    + width;
+
+            self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+        }
+    }
 }
 
