@@ -4,6 +4,7 @@
 
 use std::iter::repeat_with;
 use std::random::random;
+use surrender::Mode;
 use surrender::winit::keyboard::KeyCode;
 use surrender::winit::dpi::PhysicalSize;
 
@@ -55,7 +56,7 @@ fn main() {
                 .iter()
                 .for_each(|((x, y), _, (r, g, b))| {
                     canvas.set_color(*r, *g, *b);
-                    canvas.rectangle(*x, *y, 1.0, 1.0);
+                    canvas.rectangle(Mode::Fill, *x, *y, 1.0, 1.0);
                 });
         })
         .quit_if(|game| game.exiting)

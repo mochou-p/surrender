@@ -215,6 +215,12 @@ impl<T: Default> ApplicationHandler for App<T> {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum Mode {
+    Fill,
+    Line
+}
+
 static mut CURRENT_COLOR: u32 = 0x00FFFFFF;
 
 pub struct Canvas<'a> {
@@ -223,29 +229,72 @@ pub struct Canvas<'a> {
     height:      u32
 }
 
+// TODO: y bounds should be fine, x not yet since its 1D
 impl Canvas<'_> {
     pub fn set_color(&self, red: u8, green: u8, blue: u8) {
         unsafe { CURRENT_COLOR = u32::from_ne_bytes([blue, green, red, 0]); }
     }
 
-    pub fn rectangle(&mut self, x: f32, y: f32, width: f32, height: f32) {
-        // NOTE: yea i know amazing right (too lazy to simplify)
-        let width  = width  + x.min(0.0) - (x + width  - self.width  as f32).max(0.0);
-        let height = height + y.min(0.0) - (y + height - self.height as f32).max(0.0);
-        let x      = x.clamp(0.0, self.width  as f32);
-        let y      = y.clamp(0.0, self.height as f32);
+    pub fn point(&mut self, x: f32, y: f32) {
+        if x < 0.0 || y < 0.0 || x > self.width as f32 || y > self.height as f32 {
+            return;
+        }
 
-        let x      =      x.floor() as u32;
-        let y      =      y.floor() as u32;
-        let width  =  width.floor() as u32;
-        let height = height.floor() as u32;
+        self.framebuffer[(x + y * self.width as f32) as usize] = unsafe { CURRENT_COLOR };
+    }
 
-        for row in y..y+height {
+    pub fn rectangle(&mut self, mode: Mode, x: f32, y: f32, width: f32, height: f32) {
+        let x      =      x as u32;
+        let y      =      y as u32;
+        let width  =  width as u32;
+        let height = height as u32;
+
+        for row in y.clamp(0, self.height)..(y+height).clamp(0, self.height) {
             let y_offset = row * self.width;
             let start    = y_offset + x;
             let end      = start    + width;
 
-            self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+            match mode {
+                Mode::Fill => {
+                    self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+                },
+                Mode::Line => {
+                    if row == y || row == y+height-1 {
+                        self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+                    } else {
+                        self.framebuffer[ start  as usize] = unsafe { CURRENT_COLOR };
+                        self.framebuffer[(end-1) as usize] = unsafe { CURRENT_COLOR };
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn circle(&mut self, mode: Mode, x: f32, y: f32, radius: f32) {
+        let x      =      x as u32;
+        let y      =      y as u32;
+        let radius = radius as u32;
+
+        for row in y.saturating_sub(radius).min(self.height)..(y+radius).clamp(0, self.height) {
+            let y_offset = row * self.width;
+            let dist     = (row as i64 - y as i64).abs() as u32;
+            let scale    = (radius*radius - dist*dist).isqrt();
+            let start    = y_offset + x - scale;
+            let end      = y_offset + x + scale;
+
+            match mode {
+                Mode::Fill => {
+                    self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+                },
+                Mode::Line => {
+                    if row == y-radius+1 || row == y+radius-1 {
+                        self.framebuffer[start as usize..end as usize].fill(unsafe { CURRENT_COLOR });
+                    } else {
+                        self.framebuffer[ start  as usize] = unsafe { CURRENT_COLOR };
+                        self.framebuffer[(end-1) as usize] = unsafe { CURRENT_COLOR };
+                    }
+                }
+            }
         }
     }
 }
